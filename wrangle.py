@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import MinMaxScaler
 
 from env import get_db_url
 
@@ -208,17 +208,16 @@ def split_zillow_data(df):
     return train, validate, test
 
 def zillow_scale(df,
-                columns = ['calculatedfinishedsquarefeet', 'lotsizesquarefeet'],
-                scaler_in=RobustScaler(),
+                column_names = ['bathroomcnt', 'bedroomcnt', 'calculatedfinishedsquarefeet','latitude', 'longitude', 'lotsizesquarefeet', 'yearbuilt', 'bed_bath_ratio', 'min_rooms'],
+                scaler_in=MinMaxScaler(),
                 return_scalers=False):
     '''
     Returns a dataframe of the scaled columns
     
     Args:
         df (DataFrame) : The dataframe with the columns to scale
-        columns (list) : The columns to scale, 
-            default = ['calculatedfinishedsquarefeet', 'taxvaluedollarcnt', 'taxamount']
-        scaler_in (sklearn.preprocessing) : scaler to use, default = RobustScaler()
+        column_names (list) : The columns to scale
+        scaler_in (sklearn.preprocessing) : scaler to use, default = MinMaxScaler()
         return_scalers (bool) : boolean to return a dictionary of the scalers used for 
             the columns, default = False
     Returns:
@@ -228,37 +227,43 @@ def zillow_scale(df,
     '''
     #variables to hold the returns
     scalers = []
-    df_scaled = df[columns]
-    for column in columns:
+    df_scaled = df[column_names]
+    for column_name in column_names:
         #determine the scaler
         scaler = scaler_in
         #fit the scaler
-        scaler.fit(df[[column]])
+        scaler.fit(df[[column_name]])
         #transform the data
-        scaled_col = scaler.transform(df[[column]])
+        scaled_col = scaler.transform(df[[column_name]])
         #store the column name and scaler
         scaler = {
-            'column':column,
+            'column':column_name,
             'scaler':scaler
         }
         scalers.append(scaler)
         #store the transformed data
-        df[f"{column}_scaled"] = scaled_col
+        df[f"{column_name}_scaled"] = scaled_col
     #determine the correct varibales to return
     if return_scalers:
-        return df, scalers
+        return df.drop(columns = column_names), scalers
     else:
-        return df
+        return df.drop(columns = column_names)
 
 def make_X_and_y(df,
                 target_column = 'taxvaluedollarcnt'):
-    X_train = df.drop(columns = ['taxvaluedollarcnt'])
+    X_train = df.drop(columns = ['taxvaluedollarcnt', 'parcelid'])
     y_train = df['taxvaluedollarcnt']
     return X_train, y_train
 
+def add_custom_columns(df):
+    df['bed_bath_ratio'] = df['bedroomcnt']/df['bathroomcnt']
+    df['min_rooms'] = df['bedroomcnt'] + df['bathroomcnt']
+    seventy_percentile = df['taxvaluedollarcnt'].quantile(0.75)
+    df['luxury_house'] = (df['taxvaluedollarcnt'] >= seventy_percentile)
+    return df
 
 def encode_columns(df,
-                    column_names = ['county']):
+                    column_names = ['county', 'luxury_house']):
     dummy_df = pd.get_dummies(df[column_names], drop_first=True)
     df = pd.concat([df, dummy_df], axis=1).drop(columns = column_names)
     return df

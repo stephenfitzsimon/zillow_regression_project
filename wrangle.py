@@ -1,3 +1,6 @@
+#ziilow wrangle module
+#stephen fitzsimon
+
 import os
 
 import pandas as pd
@@ -203,7 +206,9 @@ def split_zillow_data(df):
     Return:
         train, test, validate (DataFrame) :  dataframes split from the original dataframe
     '''
+    #make train and test
     train, test = train_test_split(df, train_size = 0.8, random_state=RAND_SEED)
+    #make validate
     train, validate = train_test_split(train, train_size = 0.7, random_state=RAND_SEED)
     return train, validate, test
 
@@ -251,19 +256,29 @@ def zillow_scale(df,
 
 def make_X_and_y(df,
                 target_column = 'taxvaluedollarcnt'):
+    '''Makes a X and y sets based on the target column passed as a list'''
+    #drop relevant columns
     X_train = df.drop(columns = ['taxvaluedollarcnt', 'parcelid'])
+    #make y_Train
     y_train = df['taxvaluedollarcnt']
     return X_train, y_train
 
 def add_custom_columns(df):
+    '''creates the columns for a dataframe as defined in the explore section of final_report'''
+    #make the bed/bath ratio
     df['bed_bath_ratio'] = df['bedroomcnt']/df['bathroomcnt']
+    #make min_rooms
     df['min_rooms'] = df['bedroomcnt'] + df['bathroomcnt']
+    #make luxury homes column
     seventy_percentile = df['taxvaluedollarcnt'].quantile(0.75)
     df['luxury_house'] = (df['taxvaluedollarcnt'] >= seventy_percentile)
     return df
 
 def encode_columns(df,
                     column_names = ['county', 'luxury_house']):
+    '''encodes columns as passed in column_names'''
+    #make dummies
     dummy_df = pd.get_dummies(df[column_names], drop_first=True)
+    #add to the existing dataframe
     df = pd.concat([df, dummy_df], axis=1).drop(columns = column_names)
     return df
